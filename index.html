@@ -100,6 +100,7 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>'
 // bank from better OCR never wipes fixes they have already made.
 let ovr = load(LS_OVR) || {};
 const correctOf = q => ovr[q.id] || q.correct || [];
+const hasVerifiedAnswer = q => correctOf(q).length > 0;
 const isMulti = q => correctOf(q).length > 1 || q.multi;
 const matchingHTML = q => !q.matching_items ? '' :
   '<div class="matching">' + q.matching_items.map(o =>
@@ -118,6 +119,7 @@ const barwrap = document.getElementById('barwrap');
 function setup() {
   foot.style.display = 'none'; barwrap.style.display = 'none';
   document.getElementById('count').textContent = QUESTIONS.length + ' асуулт';
+  const verifiedCount = QUESTIONS.filter(hasVerifiedAnswer).length;
   const sizes = [20, 50, 100, 200, 300].filter(n => n < QUESTIONS.length);
   sizes.push(QUESTIONS.length);
   app.innerHTML = '<div class="card"><h2 style="margin-top:0">Сорилын тохиргоо</h2>' +
@@ -127,7 +129,9 @@ function setup() {
     '<div class="sw"><div><b>Санамсаргүй эрэмбэ</b><div class="meta">' +
     'Асуултыг холих</div></div><div class="toggle on" id="tRand"><i></i></div></div>' +
     '<div class="sw"><div><b>Шуурхай хариу</b><div class="meta">' +
-    'Хариултыг тэр даруй харуулах</div></div><div class="toggle" id="tInst"><i></i></div></div>' +
+    'Зөвхөн баталгаажсан хариутай ' + verifiedCount +
+    ' асуултаас сонгож, хариуг тэр даруй харуулах</div></div>' +
+    '<div class="toggle" id="tInst"><i></i></div></div>' +
     '</div><div class="card"><button id="go">Эхлэх</button>' +
     (ses && !ses.done ? '<button class="ghost" id="resume" style="margin-top:9px">' +
       'Үргэлжлүүлэх (' + (ses.pos + 1) + '/' + ses.order.length + ')</button>' : '') +
@@ -150,11 +154,16 @@ function setup() {
 }
 
 function start(n, random, instant) {
-  let idx = QUESTIONS.map((_, i) => i);
+  let idx = QUESTIONS.map((_, i) => i)
+    .filter(i => !instant || hasVerifiedAnswer(QUESTIONS[i]));
+  if (!idx.length) {
+    alert('Одоогоор баталгаажсан зөв хариутай асуулт алга.');
+    return;
+  }
   if (random) for (let i = idx.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1)); [idx[i], idx[j]] = [idx[j], idx[i]];
   }
-  ses = { order: idx.slice(0, n), pos: 0, picks: {}, instant, done: false };
+  ses = { order: idx.slice(0, Math.min(n, idx.length)), pos: 0, picks: {}, instant, done: false };
   store(LS_SES, ses); quiz();
 }
 
